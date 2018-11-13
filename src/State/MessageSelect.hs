@@ -116,14 +116,17 @@ yankSelectedMessage = do
 
 openSelectedMessageURLs :: MH ()
 openSelectedMessageURLs = whenMode MessageSelect $ do
-    Just curMsg <- use (to getSelectedMessage)
-    let urls = msgURLs curMsg
-    when (not (null urls)) $ do
-        openedAll <- and <$> mapM openURL urls
-        case openedAll of
-            True -> setMode Main
-            False ->
+    selectedMessage <- use (to getSelectedMessage)
+    case selectedMessage of
+      Just curMsg
+        | urls <- msgURLs curMsg
+        , not (null urls) -> do
+            openedAll <- and <$> mapM openURL urls
+            case openedAll of
+              True -> setMode Main
+              False ->
                 mhError $ ConfigOptionMissing "urlOpenCommand"
+      _ -> pure ()
 
 beginConfirmDeleteSelectedMessage :: MH ()
 beginConfirmDeleteSelectedMessage = do
