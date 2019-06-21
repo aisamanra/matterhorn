@@ -576,7 +576,8 @@ renderDeleteConfirm =
 
 mainInterface :: ChatState -> Widget Name
 mainInterface st =
-    vBox [ if st^.csShowChannelList || appMode st == ChannelSelect
+    vBox [ renderTeamSelection st
+         , if st^.csShowChannelList || appMode st == ChannelSelect
            then hBox [hLimit channelListWidth (renderChannelList st), vBorder, mainDisplay]
            else mainDisplay
          , bottomBorder
@@ -636,3 +637,9 @@ replyArrow =
         ctx <- getContext
         let bs = ctx^.ctxBorderStyleL
         render $ str [' ', bsCornerTL bs, '▸']
+
+renderTeamSelection :: ChatState -> Widget a
+renderTeamSelection st = case myTeamNames st of
+  []   -> error "no teams"
+  [_]  -> emptyWidget
+  f:ts -> hBox (txt ("[" <> f <> "]") : [ txt (" " <> t <> " ") | t <- ts ])
