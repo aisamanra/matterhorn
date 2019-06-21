@@ -29,7 +29,6 @@ import           Login
 import           State.Flagging
 import           State.Messages ( fetchVisibleIfNeeded )
 import           State.Setup.Threads
-import           TeamSelect
 import           Themes
 import           TimeUtils ( lookupLocalTimeZone )
 import           Types
@@ -103,20 +102,11 @@ setupState mkVty mLogLocation config = do
       putStrLn "Error: your account is not a member of any teams"
       exitFailure
 
-  (myTeam, teamSelVty) <- do
-      let foundTeam = do
-             tName <- configTeam config
-             let matchingTeam = listToMaybe $ filter matches $ toList teams
-                 matches t = (sanitizeUserText $ teamName t) == tName
-             matchingTeam
-
-      case foundTeam of
-          Just t -> return (t, loginVty)
-          Nothing -> do
-              (mTeam, vty) <- interactiveTeamSelection loginVty mkVty $ toList teams
-              case mTeam of
-                  Nothing -> shutdown vty
-                  Just team -> return (team, vty)
+  let myTeam =
+        let teamZip = Z.fromList [ ((), toList teams) ]
+        in case configTeam config of
+          Nothing -> teamZip
+          Just n -> Z.findRight (\ t -> sanitizeUserText (teamName t) == n) teamZip
 
   userStatusChan <- STM.newTChanIO
   slc <- STM.newTChanIO
@@ -177,19 +167,19 @@ setupState mkVty mLogLocation config = do
 
   st <- initializeState cr myTeam me
 
-  return (st, teamSelVty)
+  return (st, loginVty)
 
-initializeState :: ChatResources -> Team -> User -> IO ChatState
+initializeState :: ChatResources -> Z.Zipper () Team -> User -> IO ChatState
 initializeState cr myTeam me = do
   let session = getResourceSession cr
       requestChan = cr^.crRequestQueue
-      myTId = getId myTeam
+      myTId = getId (Z.unsafeFocus myTeam)
 
   -- Create a predicate to find the last selected channel by reading the
   -- run state file. If unable to read or decode or validate the file, this
   -- predicate is just `isTownSquare`.
   isLastSelectedChannel <- do
-    result <- readLastRunState $ teamId myTeam
+    result <- readLastRunState $ teamId (Z.unsafeFocus myTeam)
     case result of
       Right lrs | isValidLastRunState cr me lrs -> return $ \c ->
            channelId c == lrs^.lrsSelectedChannelId

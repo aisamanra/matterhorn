@@ -216,6 +216,7 @@ module Types
   , myUser
   , myUserId
   , myTeamId
+  , myTeamNames
   , usernameForUserId
   , userByUsername
   , userByNickname
@@ -1014,8 +1015,8 @@ data ChatState =
               -- is selected.
               , _csMe :: User
               -- ^ The authenticated user.
-              , _csMyTeam :: Team
-              -- ^ The active team of the authenticated user.
+              , _csMyTeam :: Zipper () Team
+              -- ^ The current active team of the authenticated user.
               , _csChannels :: ClientChannels
               -- ^ The channels that we are showing, including their
               -- message lists.
@@ -1085,7 +1086,7 @@ data StartupStateInfo =
     StartupStateInfo { startupStateResources      :: ChatResources
                      , startupStateChannelZipper  :: Zipper ChannelListGroup ChannelListEntry
                      , startupStateConnectedUser  :: User
-                     , startupStateTeam           :: Team
+                     , startupStateTeam           :: Zipper () Team
                      , startupStateTimeZone       :: TimeZoneSeries
                      , startupStateInitialHistory :: InputHistory
                      , startupStateSpellChecker   :: Maybe (Aspell, IO ())
@@ -1651,7 +1652,10 @@ myUserId :: ChatState -> UserId
 myUserId st = myUser st ^. userIdL
 
 myTeamId :: ChatState -> TeamId
-myTeamId st = st ^. csMyTeam . teamIdL
+myTeamId st = st ^. csMyTeam . to unsafeFocus . teamIdL
+
+myTeamNames :: ChatState -> [Text]
+myTeamNames st = st ^. csMyTeam . to (map (unsafeUserText . teamName) . concat . map snd . Zipper.toList)
 
 myUser :: ChatState -> User
 myUser st = st^.csMe
